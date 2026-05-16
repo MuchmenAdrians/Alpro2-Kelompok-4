@@ -54,6 +54,14 @@ jam_kuliah = {
 }
 
 # =========================
+# FUNGSI KONVERSI JAM KE RANGE
+# =========================
+def jam_to_range(jam_mulai, jam_selesai):
+    if jam_mulai in jam_kuliah and jam_selesai in jam_kuliah:
+        return f"{jam_kuliah[jam_mulai]} - {jam_kuliah[jam_selesai]}"
+    return f"Jam {jam_mulai} - {jam_selesai}"
+
+# =========================
 # FUNGSI CEK KETERSEDIAAN RUANG
 # =========================
 def cek_ruang(nama_ruang, hari, jam_mulai, jam_selesai):
@@ -85,24 +93,25 @@ def simpan_peminjaman(nama_ruang, hari, jam_mulai, jam_selesai, nama_peminjam, k
 # =========================
 def pinjam_ruang():
     print("===== PINJAM RUANG =====")
-
-    # Tampilkan daftar ruang
+    # Tampilkan daftar ruang dengan nomor
     daftar_ruang = list(jadwal_ruang.keys())
-
     print("\nDaftar Ruang:")
-    for ruang in daftar_ruang:
-        print(f"- {ruang}")
+    for i, ruang in enumerate(daftar_ruang, start=1):
+        print(f"{i}. {ruang}")
 
     # =========================
-    # INPUT NAMA RUANG (LANGSUNG)
+    # INPUT NAMA RUANG (DENGAN NOMOR)
     # =========================
     while True:
-        nama_ruang = input("\nMasukkan nama ruang: ").strip()
-        
-        if nama_ruang in jadwal_ruang:
-            break
-        else:
-            print("Nama ruang tidak tersedia. Silakan cek daftar ruang di atas.")
+        try:
+            pilih_ruang = int(input("\nPilih nomor ruang: "))           
+            if 1 <= pilih_ruang <= len(daftar_ruang):
+                nama_ruang = daftar_ruang[pilih_ruang - 1]
+                break
+            else:
+                print(f"Nomor ruang tidak tersedia. Silakan pilih 1-{len(daftar_ruang)}.")
+        except ValueError:
+            print("Input harus berupa angka.")
 
     # =========================
     # INPUT HARI
@@ -114,7 +123,6 @@ def pinjam_ruang():
     while True:
         try:
             pilih_hari = int(input("\nPilih nomor hari: "))
-
             if 1 <= pilih_hari <= len(hari_kampus):
                 hari = hari_kampus[pilih_hari - 1]
                 break
@@ -136,7 +144,6 @@ def pinjam_ruang():
     while True:
         try:
             jam_mulai = int(input("\nMasukkan jam mulai: "))
-
             if jam_mulai in jam_kuliah:
                 break
             else:
@@ -150,7 +157,6 @@ def pinjam_ruang():
     while True:
         try:
             jam_selesai = int(input("Masukkan jam selesai: "))
-
             if jam_selesai in jam_kuliah:
                 if jam_selesai >= jam_mulai:
                     break
@@ -166,7 +172,6 @@ def pinjam_ruang():
     # =========================
     while True:
         nama_peminjam = input("Masukkan nama peminjam: ").strip()
-
         if nama_peminjam != "":
             break
         else:
@@ -177,7 +182,6 @@ def pinjam_ruang():
     # =========================
     while True:
         keperluan = input("Masukkan keperluan (mata kuliah/acara): ").strip()
-
         if keperluan != "":
             break
         else:
@@ -196,22 +200,55 @@ def pinjam_ruang():
     )
 
 # =========================
+# FUNGSI UNTUK MERINGKAS JADWAL
+# =========================
+def ringkas_jadwal(jadwal_per_hari):
+    if not jadwal_per_hari:
+        return []    
+    ringkasan = []
+    jam_list = sorted(jadwal_per_hari.keys())   
+    i = 0
+    while i < len(jam_list):
+        start = jam_list[i]
+        end = start
+        
+        # Cari jam yang berurutan dengan peminjam dan keperluan yang sama
+        while i + 1 < len(jam_list) and jam_list[i + 1] == end + 1:
+            current = jadwal_per_hari[jam_list[i]]
+            next_jam = jadwal_per_hari[jam_list[i + 1]]
+            
+            # Cek apakah peminjam dan keperluan sama
+            if (current["nama"] == next_jam["nama"] and 
+                current["keperluan"] == next_jam["keperluan"]):
+                end = jam_list[i + 1]
+                i += 1
+            else:
+                break
+        
+        ringkasan.append({
+            "jam_mulai": start,
+            "jam_selesai": end,
+            "nama": jadwal_per_hari[start]["nama"],
+            "keperluan": jadwal_per_hari[start]["keperluan"]
+        })
+        i += 1    
+    return ringkasan
+
+# =========================
 # FITUR LIHAT JADWAL
 # =========================
 def lihat_semua_jadwal():
-    print("===== DAFTAR PEMINJAMAN =====")
-    
+    print("===== DAFTAR PEMINJAMAN =====")    
     ada_peminjaman = False
     for ruang, data in jadwal_ruang.items():
         if data:
             ada_peminjaman = True
             print(f"\nRuang: {ruang}")
             for hari, jam_data in data.items():
-                for jam, value in jam_data.items():
-                    waktu = jam_kuliah[jam]
-                    nama = value["nama"] if isinstance(value, dict) else value
-                    keperluan = value["keperluan"] if isinstance(value, dict) else "-"
-                    print(f"  - {hari.capitalize()} ({waktu}): {nama} - {keperluan}")
+                ringkasan = ringkas_jadwal(jam_data)
+                for item in ringkasan:
+                    range_waktu = jam_to_range(item["jam_mulai"], item["jam_selesai"])
+                    print(f"  - {hari.capitalize()} ({range_waktu}): {item['nama']} - {item['keperluan']}")
     
     if not ada_peminjaman:
         print("\nBelum ada peminjaman ruang.")
@@ -219,45 +256,41 @@ def lihat_semua_jadwal():
 def lihat_jadwal_per_ruang():
     while True:
         clear_screen()
-        print("===== CEK JADWAL PER RUANG =====")
-        
-        # Tampilkan daftar ruang yang tersedia
+        print("===== CEK JADWAL PER RUANG =====")       
+        # Tampilkan daftar ruang yang tersedia dengan nomor
+        daftar_ruang = list(jadwal_ruang.keys())
         print("\nDaftar Ruang yang Tersedia:")
-        for ruang in jadwal_ruang.keys():
-            print(f"- {ruang}")
+        for i, ruang in enumerate(daftar_ruang, start=1):
+            print(f"{i}. {ruang}")
 
         print("\nKetik 'menu' untuk kembali ke utama")
-        nama = input("\nMasukkan Nama Ruang: ").strip()
-        
-        if nama.lower() == "menu":
-            break
-        
-        if nama == "":
-            print("\nNama ruang tidak boleh kosong!")
+        pilihan = input("\nPilih nomor ruang: ").strip()        
+        if pilihan.lower() == "menu":
+            break       
+        if pilihan == "":
+            print("\nPilihan tidak boleh kosong!")
             input("\nTekan Enter untuk mencoba lagi...")
             continue
         
-        # Cek apakah input cocok dengan nama ruang (case insensitive)
-        ruang_ditemukan = None
-        for ruang in jadwal_ruang.keys():
-            if ruang.lower() == nama.lower():
-                ruang_ditemukan = ruang
-                break
-        
-        if ruang_ditemukan:
-            data = jadwal_ruang[ruang_ditemukan]
-            if data:
-                print(f"\nJadwal {ruang_ditemukan}:")
-                for hari, jam_data in data.items():
-                    for jam, value in jam_data.items():
-                        waktu = jam_kuliah[jam]
-                        nama_peminjam = value["nama"] if isinstance(value, dict) else value
-                        keperluan = value["keperluan"] if isinstance(value, dict) else "-"
-                        print(f"  - {hari.capitalize()} ({waktu}): {nama_peminjam} - {keperluan}")
+        # Cek apakah input berupa angka
+        try:
+            index = int(pilihan)
+            if 1 <= index <= len(daftar_ruang):
+                nama_ruang = daftar_ruang[index - 1]
+                data = jadwal_ruang[nama_ruang]
+                if data:
+                    print(f"\nJadwal {nama_ruang}:")
+                    for hari, jam_data in data.items():
+                        ringkasan = ringkas_jadwal(jam_data)
+                        for item in ringkasan:
+                            range_waktu = jam_to_range(item["jam_mulai"], item["jam_selesai"])
+                            print(f"  - {hari.capitalize()} ({range_waktu}): {item['nama']} - {item['keperluan']}")
+                else:
+                    print(f"\n{nama_ruang} masih kosong, belum ada peminjaman!")
             else:
-                print(f"\n{ruang_ditemukan} masih kosong, belum ada peminjaman!")
-        else:
-            print("\nNama ruang salah atau tidak ada.")
+                print(f"\nNomor ruang tidak valid. Silakan pilih 1-{len(daftar_ruang)}.")
+        except ValueError:
+            print("\nInput harus berupa angka!")
         
         input("\nTekan Enter untuk cek ruang lain...")
 
@@ -266,40 +299,38 @@ def lihat_jadwal_per_ruang():
 # =========================
 def hapus_peminjaman():
     print("===== HAPUS PEMINJAMAN =====")
-
-    # Tampilkan daftar ruang
+    # Tampilkan daftar ruang dengan nomor
+    daftar_ruang = list(jadwal_ruang.keys())
     print("\nDaftar Ruang:")
-    for ruang in jadwal_ruang.keys():
-        print(f"- {ruang}")
+    for i, ruang in enumerate(daftar_ruang, start=1):
+        print(f"{i}. {ruang}")
 
     # =========================
-    # INPUT NAMA RUANG
+    # INPUT NAMA RUANG (DENGAN NOMOR)
     # =========================
     while True:
-        nama_ruang = input("\nMasukkan nama ruang: ").strip()
-
-        if nama_ruang in jadwal_ruang:
-            break
-        else:
-            print("Nama ruang tidak tersedia.")
+        try:
+            pilih_ruang = int(input("\nPilih nomor ruang: "))
+            
+            if 1 <= pilih_ruang <= len(daftar_ruang):
+                nama_ruang = daftar_ruang[pilih_ruang - 1]
+                break
+            else:
+                print(f"Nomor ruang tidak tersedia. Silakan pilih 1-{len(daftar_ruang)}.")
+        except ValueError:
+            print("Input harus berupa angka.")
 
     # =========================
     # TAMPILKAN DATA PEMINJAMAN
     # =========================
     data_ruang = jadwal_ruang[nama_ruang]
-
     if data_ruang:
         print(f"\nData peminjaman di {nama_ruang}:")
-
         for hari, jam_data in data_ruang.items():
-            for jam, value in jam_data.items():
-
-                waktu = jam_kuliah[jam]
-                nama = value["nama"]
-                keperluan = value["keperluan"]
-
-                print(f"- {hari.capitalize()} ({waktu}) : {nama} - {keperluan}")
-
+            ringkasan = ringkas_jadwal(jam_data)
+            for item in ringkasan:
+                range_waktu = jam_to_range(item["jam_mulai"], item["jam_selesai"])
+                print(f"- {hari.capitalize()} ({range_waktu}): {item['nama']} - {item['keperluan']}")
     else:
         print("\nBelum ada peminjaman pada ruang ini.")
         return
@@ -314,7 +345,6 @@ def hapus_peminjaman():
     while True:
         try:
             pilih_hari = int(input("\nPilih nomor hari: "))
-
             if 1 <= pilih_hari <= len(hari_kampus):
                 hari = hari_kampus[pilih_hari - 1]
                 break
@@ -336,7 +366,6 @@ def hapus_peminjaman():
     while True:
         try:
             jam_mulai = int(input("\nMasukkan jam mulai yang ingin dihapus: "))
-
             if jam_mulai in jam_kuliah:
                 break
             else:
@@ -350,7 +379,6 @@ def hapus_peminjaman():
     while True:
         try:
             jam_selesai = int(input("Masukkan jam selesai yang ingin dihapus: "))
-
             if jam_selesai in jam_kuliah:
                 if jam_selesai >= jam_mulai:
                     break
@@ -367,9 +395,7 @@ def hapus_peminjaman():
     data_ditemukan = False
 
     if hari in jadwal_ruang[nama_ruang]:
-
         for jam in range(jam_mulai, jam_selesai + 1):
-
             if jam in jadwal_ruang[nama_ruang][hari]:
                 del jadwal_ruang[nama_ruang][hari][jam]
                 data_ditemukan = True
@@ -377,7 +403,6 @@ def hapus_peminjaman():
         # Hapus hari jika kosong
         if not jadwal_ruang[nama_ruang][hari]:
             del jadwal_ruang[nama_ruang][hari]
-
     if data_ditemukan:
         print("\nPeminjaman berhasil dihapus.")
     else:
@@ -424,4 +449,4 @@ def menu_utama():
 # MENJALANKAN PROGRAM
 # =========================
 clear_screen()
-menu_utama()
+menu_utama() 
